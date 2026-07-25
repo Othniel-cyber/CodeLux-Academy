@@ -1,13 +1,13 @@
-{
+﻿{
     "name": "CodeLux Academy",
     "short_name": "CodeLux",
     "description": "Apprends à coder gratuitement avec CodeLux Academy. Python, JavaScript, HTML, CSS, SQL et plus !",
-    "start_url": "/CodeLux-Academy/index.html",
+    "start_url": "/",
     "display": "standalone",
     "background_color": "#0f0f1a",
     "theme_color": "#6c5ce7",
     "orientation": "portrait",
-    "scope": "/CodeLux-Academy/",
+    "scope": "/",
     "icons": [
         { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }
     ]

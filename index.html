@@ -264,6 +264,7 @@
             <button class="admin-tab active" onclick="switchAdminTab('users',this)"><i class="fa-solid fa-users"></i> Utilisateurs (<span id="adminUsersCount">0</span>)</button>
             <button class="admin-tab" onclick="switchAdminTab('progress',this)"><i class="fa-solid fa-chart-line"></i> Progression</button>
             <button class="admin-tab" onclick="switchAdminTab('certificates',this)"><i class="fa-solid fa-certificate"></i> Certificats</button>
+            <button class="admin-tab" onclick="syncAllLocalToFirebase()" style="border-color:#00b894;color:#00b894" title="Synchroniser les utilisateurs locaux vers le cloud"><i class="fa-solid fa-cloud-upload-alt"></i> Sync</button>
           </div>
           <div id="adminContent"></div>
         </div>
@@ -272,9 +273,10 @@
 
     <canvas id="certificateCanvas" style="display: none"></canvas>
 
-    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-<script src="js/supabase-config.js"></script>
-<script src="js/data.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore-compat.js"></script>
+    <script src="js/firebase-config.js"></script>
+    <script src="js/data.js"></script>
     <script src="js/app.js"></script>
     <script>
       if ("serviceWorker" in navigator) {

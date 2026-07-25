@@ -1,10 +1,10 @@
-const CACHE_NAME = 'codelux-academy-v1';
+﻿const CACHE_NAME = 'codelux-academy-v1';
 const ASSETS = [
-    '/CodeLux-Academy/index.html',
-    '/CodeLux-Academy/css/style.css',
-    '/CodeLux-Academy/js/data.js',
-    '/CodeLux-Academy/js/app.js',
-    '/CodeLux-Academy/manifest.json'
+    '/index.html',
+    '/css/style.css',
+    '/js/data.js',
+    '/js/app.js',
+    '/manifest.json'
 ];
 
 self.addEventListener('install', (event) => {
