@@ -1,0 +1,14 @@
+The FetchEvent for "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore-compat.js" resulted in a network error response: the promise was rejected.
+The FetchEvent for "https://www.gstatic.com/firebasejs/12.16.0/firebase-app-compat.js" resulted in a network error response: the promise was rejected.
+service-worker.js:31  Uncaught (in promise) TypeError: Failed to fetch
+    at service-worker.js:31:32
+service-worker.js:31  Uncaught (in promise) TypeError: Failed to fetch
+    at service-worker.js:31:32
+CodeLux-Academy/:1 [DOM] Password field is not contained in a form: (More info: https://www.chromium.org/developers/design-documents/create-amazing-password-forms) <input type=​"password" id=​"adminPassword" class=​"admin-password-input" placeholder=​"Mot de passe" onkeydown=​"if(event.key==='Enter')​checkAdminPass()​" wfd-id=​"id10">​
+CodeLux-Academy/:1 [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://www.chromium.org/developers/design-documents/create-amazing-password-forms) <input type=​"password" id=​"login-password" placeholder=​"Ton mot de passe" required wfd-id=​"id1">​
+CodeLux-Academy/:1 [DOM] Input elements should have autocomplete attributes (suggested: "new-password"): (More info: https://www.chromium.org/developers/design-documents/create-amazing-password-forms) <input type=​"password" id=​"reg-password" placeholder=​"Minimum 4 caractères" required wfd-id=​"id4">​
+CodeLux-Academy/:1 [DOM] Input elements should have autocomplete attributes (suggested: "new-password"): (More info: https://www.chromium.org/developers/design-documents/create-amazing-password-forms) <input type=​"password" id=​"reg-confirm" placeholder=​"Retaper le mot de passe" required wfd-id=​"id5">​
+CodeLux-Academy/:287 CodeLux Academy prêt à être installé !
+CodeLux-Academy/:1 <meta name="apple-mobile-web-app-capable" content="yes"> is deprecated. Please include <meta name="mobile-web-app-capable" content="yes">
+[NEW] Explain Console errors by using Copilot in Edge: click  to explain an error. Learn moreDon't show again
+service-worker.js:1 Uncaught (in promise) TypeError: Failed to execute 'addAll' on 'Cache': Request failed

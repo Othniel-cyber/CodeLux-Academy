@@ -2,47 +2,43 @@ function escapeHTML(text) {
     return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
 }
 
-async function syncUserToFirebase(email, password, name) {
+async function syncUserToSupabase(email, password, name) {
     try {
-        await db.collection('users').doc(email).set({ email, password, name, created_at: new Date().toISOString() });
-    } catch(e) { console.warn('Firebase sync user failed:', e); }
+        const { data, error } = await supabaseClient.from('users').upsert(
+            { email, password, name, updated_at: new Date().toISOString() },
+            { onConflict: 'email' }
+        );
+        if (error) console.error('Supabase sync user error:', error);
+    } catch(e) { console.warn('Supabase sync failed (offline?)', e); }
 }
 
-async function syncAllLocalToFirebase() {
-    const count = Object.keys(users).length;
-    if (count === 0) { alert('Aucun utilisateur local à synchroniser.'); return; }
-    let ok = 0, fail = 0;
-    for (const email in users) {
-        try {
-            await db.collection('users').doc(email).set({ ...users[email], created_at: (users[email].created_at || new Date().toISOString()) });
-            ok++;
-        } catch(e) { fail++; console.warn('Sync failed for', email, e); }
-    }
-    alert(`${ok} utilisateur(s) synchronisé(s) avec Firestore.${fail ? ' (' + fail + ' échec(s))' : ''}`);
-    loadAdminData('users');
+async function syncProgressToSupabase(email, langId, lessons, examPassed) {
+    try {
+        const { data, error } = await supabaseClient.from('progress').upsert(
+            { email, lang_id: langId, lessons: JSON.stringify(lessons || []), exam_passed: examPassed || false, updated_at: new Date().toISOString() },
+            { onConflict: 'email,lang_id' }
+        );
+        if (error) console.error('Supabase sync progress error:', error);
+    } catch(e) { console.warn('Supabase sync failed (offline?)', e); }
 }
 
-async function syncProgressToFirebase(email, langId, lessons, examPassed) {
+async function syncCertToSupabase(email, langId, certId) {
     try {
-        await db.collection('progress').doc(email + '_' + langId).set({ email, lang_id: langId, lessons: lessons || [], exam_passed: examPassed || false, updated_at: new Date().toISOString() });
-    } catch(e) { console.warn('Firebase sync progress failed:', e); }
+        const { data, error } = await supabaseClient.from('certificates').insert(
+            { email, lang_id: langId, cert_id: certId }
+        );
+        if (error) console.error('Supabase sync cert error:', error);
+    } catch(e) { console.warn('Supabase sync failed (offline?)', e); }
 }
 
-async function syncCertToFirebase(email, langId, certId) {
+async function loadUsersFromSupabase() {
     try {
-        await db.collection('certificates').add({ email, lang_id: langId, cert_id: certId, created_at: new Date().toISOString() });
-    } catch(e) { console.warn('Firebase sync cert failed:', e); }
-}
-
-async function loadUsersFromFirebase() {
-    try {
-        const snap = await db.collection('users').get();
-        snap.forEach(d => {
-            const u = d.data();
-            users[u.email] = { email: u.email, password: u.password, name: u.name };
-        });
-        saveUsers();
-    } catch(e) { console.warn('Firebase load failed:', e); }
+        const { data, error } = await supabaseClient.from('users').select('email, password, name');
+        if (!error && data) {
+            data.forEach(u => { users[u.email] = { email: u.email, password: u.password, name: u.name }; });
+            saveUsers();
+        }
+    } catch(e) { console.warn('Supabase load failed (offline?)', e); }
 }
 
 let currentLang = null;
@@ -54,13 +50,9 @@ let profileData = {};
 let progress = {};
 let certificates = [];
 
-async function init() {
+function init() {
     loadFromStorage();
-    try {
-        await loadUsersFromFirebase();
-    } catch(e) {
-        console.warn('Firebase non accessible, mode local uniquement', e);
-    }
+    loadUsersFromSupabase();
 }
 
 function startApp() {
@@ -108,11 +100,11 @@ function saveUserData() {
         progress: progress,
         certificates: certificates
     }));
-    // Sync progress to Firebase
+    // Sync progress to Supabase
     if (progress && typeof progress === 'object') {
         Object.keys(progress).forEach(langId => {
             const p = progress[langId];
-            if (p) syncProgressToFirebase(currentUser.email, langId, p.lessons || [], p.examPassed || false);
+            if (p) syncProgressToSupabase(currentUser.email, langId, p.lessons || [], p.examPassed || false);
         });
     }
 }
@@ -178,7 +170,7 @@ function handleRegister(e) {
     }
     users[email] = { email, password, name };
     saveUsers();
-    await syncUserToFirebase(email, password, name);
+    syncUserToSupabase(email, password, name);
     currentUser = users[email];
     saveCurrentUser();
     loadUserData();
@@ -201,27 +193,19 @@ async function handleLogin(e) {
         renderAuth();
         return;
     }
-    // Vérifier dans Firebase si pas en local
+    // Vérifier dans Supabase si pas en local
     try {
-        const snap = await db.collection('users').doc(email).get();
-        if (snap.exists) {
-            const data = snap.data();
-            if (data.password === password) {
-                users[email] = { email: data.email, password: data.password, name: data.name };
-                saveUsers();
-                currentUser = users[email];
-                saveCurrentUser();
-                loadUserData();
-                renderAuth();
-                return;
-            }
-        }
-    } catch(e) {
-        if (e.code === 'failed-precondition' || e.message?.includes('Firestore')) {
-            showAuthError('Base de données inaccessible. Vérifie que Firestore est activé dans la console Firebase.');
+        const { data, error } = await supabaseClient.from('users').select('email, password, name').eq('email', email).single();
+        if (!error && data && data.password === password) {
+            users[email] = { email: data.email, password: data.password, name: data.name };
+            saveUsers();
+            currentUser = users[email];
+            saveCurrentUser();
+            loadUserData();
+            renderAuth();
             return;
         }
-    }
+    } catch(e) {}
     showAuthError('Email ou mot de passe incorrect');
 }
 
@@ -565,7 +549,7 @@ function submitExam(langId) {
         if (!progress[langId]) progress[langId] = { lessons: [], examPassed: false };
         progress[langId].examPassed = true;
         saveUserData();
-        syncProgressToFirebase(currentUser.email, langId, progress[langId].lessons || [], true);
+        syncProgressToSupabase(currentUser.email, langId, progress[langId].lessons || [], true);
     }
     showPage('exam-result');
 }
@@ -793,7 +777,7 @@ function renderCertificate(certId, langId) {
         if (existingIdx >= 0) certificates[existingIdx] = cert;
         else certificates.push(cert);
         saveUserData();
-        syncCertToFirebase(currentUser.email, langId, certId);
+        syncCertToSupabase(currentUser.email, langId, certId);
         window._lastCertData = imgData;
     }
 
@@ -937,36 +921,33 @@ async function loadAdminData(tab) {
 
     try {
         if (activeTab === 'users') {
-            const snap = await db.collection('users').get();
-            const data = [];
-            snap.forEach(d => data.push(d.data()));
-            document.getElementById('adminUsersCount').textContent = data.length;
-            if (data.length === 0) {
-                container.innerHTML = '<div style="text-align:center;padding:60px;color:#888"><i class="fa-solid fa-users" style="font-size:48px;margin-bottom:15px"></i><h3>Aucun utilisateur</h3><p style="margin-top:10px;font-size:14px;color:#666">Clique sur <strong style="color:#00b894">Sync</strong> pour importer les utilisateurs locaux vers le cloud.</p></div>';
+            const { data, error } = await supabaseClient.from('users').select('*').order('created_at', { ascending: false });
+            if (error) throw error;
+            document.getElementById('adminUsersCount').textContent = data ? data.length : 0;
+            if (!data || data.length === 0) {
+                container.innerHTML = '<div style="text-align:center;padding:60px;color:#888"><i class="fa-solid fa-users" style="font-size:48px;margin-bottom:15px"></i><h3>Aucun utilisateur</h3></div>';
                 return;
             }
             let html = '<div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>#</th><th>Nom</th><th>Email</th><th>Date d\'inscription</th></tr></thead><tbody>';
-            data.reverse().forEach((u, i) => {
+            data.forEach((u, i) => {
                 const date = u.created_at ? new Date(u.created_at).toLocaleDateString('fr-FR') : 'N/A';
                 html += `<tr><td>${i + 1}</td><td><strong>${u.name || 'N/A'}</strong></td><td>${u.email}</td><td>${date}</td></tr>`;
             });
             html += '</tbody></table></div>';
             container.innerHTML = html;
         } else if (activeTab === 'progress') {
-            const userSnap = await db.collection('users').get();
-            const userMap = {};
-            userSnap.forEach(d => { const u = d.data(); userMap[u.email] = u.name; });
-
-            const progSnap = await db.collection('progress').get();
-            const progressData = [];
-            progSnap.forEach(d => progressData.push(d.data()));
-            if (progressData.length === 0) {
+            const { data: users, error: uErr } = await supabaseClient.from('users').select('email, name');
+            const { data: progress, error: pErr } = await supabaseClient.from('progress').select('*');
+            if (pErr) throw pErr;
+            if (!progress || progress.length === 0) {
                 container.innerHTML = '<div style="text-align:center;padding:60px;color:#888"><i class="fa-solid fa-chart-line" style="font-size:48px;margin-bottom:15px"></i><h3>Aucune progression</h3></div>';
                 return;
             }
+            const userMap = {};
+            if (users) users.forEach(u => userMap[u.email] = u.name);
             let html = '<div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>#</th><th>Utilisateur</th><th>Langage</th><th>Leçons</th><th>Examen</th><th>Dernière MAJ</th></tr></thead><tbody>';
-            progressData.forEach((p, i) => {
-                const lessons = p.lessons || [];
+            progress.forEach((p, i) => {
+                const lessons = typeof p.lessons === 'string' ? JSON.parse(p.lessons || '[]') : (p.lessons || []);
                 const date = p.updated_at ? new Date(p.updated_at).toLocaleDateString('fr-FR') : 'N/A';
                 const langCourse = COURSES[p.lang_id];
                 html += `<tr><td>${i + 1}</td><td>${userMap[p.email] || p.email}</td><td>${langCourse ? langCourse.title : p.lang_id}</td><td>${lessons.length}</td><td>${p.exam_passed ? '<span class="badge-ok">Réussi</span>' : '<span class="badge-no">Non</span>'}</td><td>${date}</td></tr>`;
@@ -974,16 +955,15 @@ async function loadAdminData(tab) {
             html += '</tbody></table></div>';
             container.innerHTML = html;
         } else if (activeTab === 'certificates') {
-            const certSnap = await db.collection('certificates').get();
-            const certs = [];
-            certSnap.forEach(d => certs.push(d.data()));
-            const userSnap = await db.collection('users').get();
-            const userMap = {};
-            userSnap.forEach(d => { const u = d.data(); userMap[u.email] = u.name; });
-            if (certs.length === 0) {
+            const { data: certs, error: cErr } = await supabaseClient.from('certificates').select('*').order('created_at', { ascending: false });
+            const { data: users, error: uErr } = await supabaseClient.from('users').select('email, name');
+            if (cErr) throw cErr;
+            if (!certs || certs.length === 0) {
+                container.innerHTML = '<div style="text-align:center;padding:60px;color:#888"><i class="fa-solid fa-certificate" style="font-size:48px;margin-bottom:15px"></i><h3>Aucun certificat</h3></div>';
                 return;
             }
-            certs.reverse();
+            const userMap = {};
+            if (users) users.forEach(u => userMap[u.email] = u.name);
             let html = '<div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>#</th><th>Utilisateur</th><th>Langage</th><th>Certificat #</th><th>Date</th></tr></thead><tbody>';
             certs.forEach((c, i) => {
                 const date = c.created_at ? new Date(c.created_at).toLocaleDateString('fr-FR') : 'N/A';
@@ -994,8 +974,6 @@ async function loadAdminData(tab) {
             container.innerHTML = html;
         }
     } catch(e) {
-        container.innerHTML = `<div style="text-align:center;padding:40px;color:#e17055"><i class="fa-solid fa-triangle-exclamation" style="font-size:48px;margin-bottom:15px"></i><h3>Erreur de chargement</h3><p style="color:#bbb">Firestore est-il activé dans la console Firebase ?</p><p style="font-size:12px;color:#888">${e.message}</p></div>`;
+        container.innerHTML = `<div style="text-align:center;padding:40px;color:#e17055"><i class="fa-solid fa-triangle-exclamation" style="font-size:48px;margin-bottom:15px"></i><h3>Erreur de chargement</h3><p>${e.message}</p></div>`;
     }
 }
-
-init();
